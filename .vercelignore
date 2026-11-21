@@ -1,0 +1,6 @@
+test/
+docs/
+supabase/
+*.md
+starter/
+tools/

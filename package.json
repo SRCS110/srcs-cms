@@ -1,0 +1,15 @@
+{
+  "name": "srcs-cms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sync Race Studios inline CMS: edit client sites in place, publish as Git commits.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "parse5": "^7.1.2"
+  }
+}

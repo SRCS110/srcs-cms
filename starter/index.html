@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{SITE_NAME}}</title>
+<meta name="description" content="{{SITE_DESCRIPTION}}">
+<link rel="canonical" href="https://{{PRIMARY_DOMAIN}}/">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"LocalBusiness","name":"{{SITE_NAME}}","url":"https://{{PRIMARY_DOMAIN}}/","telephone":"{{PHONE}}"}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <a class="brand" href="/">{{SITE_NAME}}</a>
+  <nav aria-label="Main"><a href="/">Home</a><a href="/about">About</a><a href="/contact">Contact</a></nav>
+</header>
+
+<main id="main">
+  <!-- CMS: every data-cms key is unique on this page. Types: text (default), rich, link, image, list. -->
+  <section class="hero">
+    <h1 data-cms="hero-title" data-cms-max="70">{{HERO_TITLE}}</h1>
+    <p data-cms="hero-sub" data-cms-max="160">{{HERO_SUB}}</p>
+    <a class="btn" data-cms="hero-cta" data-cms-type="link" href="/contact">{{CTA_LABEL}}</a>
+    <img data-cms="hero-img" src="/assets/hero.jpg" alt="{{HERO_ALT}}" width="1600" height="900" fetchpriority="high">
+  </section>
+
+  <section class="intro">
+    <h2 data-cms="intro-title">{{INTRO_TITLE}}</h2>
+    <div data-cms="intro-body" data-cms-type="rich"><p>{{INTRO_BODY}}</p></div>
+  </section>
+
+  <section class="cards">
+    <h2 data-cms="services-title">Services</h2>
+    <ul class="card-list" data-cms="services" data-cms-type="list" data-cms-label="services list">
+      <li class="card">
+        <h3 data-cms-field="name">{{SERVICE_1}}</h3>
+        <p data-cms-field="body" data-cms-type="rich">{{SERVICE_1_BODY}}</p>
+      </li>
+      <li class="card">
+        <h3 data-cms-field="name">{{SERVICE_2}}</h3>
+        <p data-cms-field="body" data-cms-type="rich">{{SERVICE_2_BODY}}</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="visit">
+    <h2>Visit</h2>
+    <p class="hours" data-cms-global="hours">{{HOURS}}</p>
+    <p><a data-cms-global="phone-link" data-cms-type="link" href="tel:{{PHONE}}">{{PHONE_DISPLAY}}</a></p>
+    <address data-cms-global="address">{{ADDRESS}}</address>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <p>© <span data-cms-global="business-name">{{SITE_NAME}}</span></p>
+  <p class="hours" data-cms-global="hours">{{HOURS}}</p>
+</footer>
+<script src="https://cms.srcs.online/loader.js" data-site="{{SITE_KEY}}" defer></script>
+</body>
+</html>

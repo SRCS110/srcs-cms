@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Sign in · SRCS Editor</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Marcellus&display=swap" rel="stylesheet">
+<style>
+  :root { --cream: #FBF8F4; --ink: #111; --lamp: #C4623A; --lamp-ink: #A24C29; --line: #E2DBD1; --muted: #5E574F; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--cream); color: var(--ink); font: 400 16px/1.6 Jost, system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+  main { width: 100%; max-width: 420px; background: #fff; border: 1px solid var(--line); box-shadow: 0 18px 48px rgba(17,17,17,.08); padding: 40px 36px; display: flex; flex-direction: column; gap: 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 30px; height: 42px; }
+  .brand span { font-family: Marcellus, serif; letter-spacing: .16em; font-size: 14px; }
+  h1 { font-family: Marcellus, serif; font-weight: 400; font-size: 28px; line-height: 1.2; margin: 0; }
+  p { margin: 0; color: var(--muted); }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
+  input { font: inherit; color: var(--ink); border: 1px solid #D3CBBF; padding: 12px 14px; background: #fff; }
+  input:focus { outline: 2px solid var(--lamp); outline-offset: 1px; border-color: var(--lamp); }
+  button { font: 500 14px/1 Jost, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; background: var(--ink); color: var(--cream); border: 0; padding: 16px; cursor: pointer; min-height: 48px; }
+  button:hover { background: #2A2A2A; }
+  button[disabled] { opacity: .6; cursor: default; }
+  .link { background: none; color: var(--lamp-ink); text-transform: none; letter-spacing: 0; padding: 0; min-height: 0; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
+  .link:hover { background: none; color: #7E3A1F; }
+  .err { color: #8C1D18; font-size: 14px; }
+  .small { font-size: 13px; }
+  [hidden] { display: none !important; }
+  footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 16px; }
+  footer a { color: var(--lamp-ink); }
+</style>
+</head>
+<body>
+<div>
+<main>
+  <div class="brand"><img src="/assets/srcs-curve.svg" alt=""><span>SRCS EDITOR</span></div>
+
+  <section id="ask" hidden>
+    <form id="form" style="display:flex;flex-direction:column;gap:16px" novalidate>
+      <h1 id="title">Sign in to edit your site</h1>
+      <p>We’ll email you a one-time link. No password needed.</p>
+      <label>Email<input id="email" type="email" autocomplete="email" required></label>
+      <div id="formErr" class="err" role="alert" hidden></div>
+      <button id="send" type="submit">Send sign-in link</button>
+    </form>
+  </section>
+
+  <section id="sent" hidden style="display:flex;flex-direction:column;gap:16px">
+    <h1>Check your email</h1>
+    <p>If <strong id="sentTo"></strong> has access to this site, a sign-in link is on its way. It opens your site ready to edit.</p>
+    <p class="small">Didn’t get it? Check spam, or wait a minute and try again.</p>
+    <button class="link" type="button" id="again">Use a different email</button>
+  </section>
+
+  <section id="busy" hidden style="display:flex;flex-direction:column;gap:12px">
+    <h1>Signing you in…</h1>
+    <p>One moment.</p>
+  </section>
+
+  <section id="fail" hidden style="display:flex;flex-direction:column;gap:12px">
+    <h1>That didn’t work</h1>
+    <p id="failMsg"></p>
+    <button class="link" type="button" id="retry">Send a new link</button>
+  </section>
+
+  <section id="lost" hidden style="display:flex;flex-direction:column;gap:12px">
+    <h1>Open your website first</h1>
+    <p>To edit, go to your website and add <strong>?edit</strong> to the end of the address, for example <em>yourbusiness.com/?edit</em>.</p>
+  </section>
+</main>
+<footer>Editor by <a href="https://www.srcs.online" rel="noopener">Sync Race Studios</a></footer>
+</div>
+
+<script src="/login.js" defer></script>
+</body>
+</html>

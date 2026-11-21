@@ -1,0 +1,15 @@
+/* Base only. Replace with the client's design (see the srcs-site-system skill). */
+:root { --bg: #FBF8F4; --ink: #111; --accent: #C4623A; --muted: #5E574F; --max: 1120px; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.6 system-ui, sans-serif; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); }
+.skip { position: absolute; left: -9999px; } .skip:focus { left: 16px; top: 16px; background: #fff; padding: 8px 12px; }
+.site-header, main > section, .site-footer { max-width: var(--max); margin: 0 auto; padding: 24px; }
+.site-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.site-header nav { display: flex; gap: 20px; flex-wrap: wrap; }
+.brand { font-weight: 600; text-decoration: none; color: var(--ink); }
+.btn { display: inline-block; background: var(--ink); color: var(--bg); padding: 14px 24px; text-decoration: none; }
+.card-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+.hours { white-space: pre-line; }
+.notfound { min-height: 60vh; display: grid; place-content: center; text-align: center; }

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Bistro</title>
+<style>
+  body { margin: 0; font-family: Georgia, serif; background: #FBF8F4; color: #111; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+  nav a { margin-right: 16px; color: #444; }
+  .hours { white-space: pre-line; }
+  .btn { display: inline-block; background: #111; color: #fff; padding: 12px 20px; text-decoration: none; }
+  img { max-width: 100%; height: auto; display: block; }
+  ul.menu { list-style: none; padding: 0; display: grid; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a href="/">Home</a><a href="/about.html">About</a></nav>
+  <h1 data-cms="hero-title" data-cms-max="60">Seasonal plates and local wine</h1>
+  <p data-cms="about-body" data-cms-type="rich">We cook with what the valley gives us <strong>each week</strong>.</p>
+  <a class="btn" data-cms="book-cta" data-cms-type="link" href="/book">Reserve a table</a>
+  <p>Call <span data-cms-global="phone">(707) 555-0142</span></p>
+  <div class="hours" data-cms="hours">Tue–Thu 5–9 pm
+Fri–Sat 5–10 pm</div>
+  <img data-cms="hero-img" src="/hero.png" alt="Patio at dusk" width="800" height="400">
+  <ul class="menu" data-cms="menu" data-cms-type="list">
+    <li><strong data-cms-field="name">Soup</strong> <span data-cms-field="price">$8</span></li>
+    <li><strong data-cms-field="name">Salad</strong> <span data-cms-field="price">$9</span></li>
+  </ul>
+  <p>Not editable paragraph.</p>
+</div>
+<script src="__CMS__/loader.js" data-site="demo" defer></script>
+</body>
+</html>
