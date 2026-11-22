@@ -1,4 +1,5 @@
-/*! SRCS CMS sign-in page.
+/*! SRCS CMS sign-in page. Every editor signs in with an email link plus an
+   authenticator-app code (set up on first sign-in).
    The full sign-in lives only here, on cms.srcs.online. Client sites receive a
    pass that works for that one site for 12 hours; when it runs out, this page
    issues a new one without another email, as long as you're still signed in here. */
@@ -92,7 +93,7 @@
       if (!r.ok) throw new Error(e.error || 'Couldn’t start two-step setup.');
       mfaFactor = e.factorId;
       $('mfaTitle').textContent = 'Set up two-step sign-in';
-      $('mfaIntro').textContent = 'Your account can edit every client site, so it needs a second step. Scan this with an authenticator app (Google Authenticator, 1Password, Authy…), then enter the 6-digit code it shows.';
+      $('mfaIntro').textContent = 'To keep your website safe, signing in to the editor needs a second step. Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password or Authy), scan this code with it, then enter the 6-digit code it shows. You only scan once.';
       if (/^data:image\/svg\+xml/.test(e.qr || '')) $('mfaQr').src = e.qr;
       $('mfaSecret').textContent = e.secret || '';
       $('mfaSetup').hidden = false;

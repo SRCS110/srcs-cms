@@ -10,11 +10,9 @@ export default endpoint({ methods: ['POST'], cors: 'cms' }, async (req, res) => 
   const site = await siteByKey(req.body.site);
   const user = await requireUser(req, site, { supabase: true });
   const role = await requireRole(site, user);
-  // Sync Race Studios admins can reach every site, so they must also pass a code
-  // from their authenticator app (Supabase MFA, assurance level aal2).
-  if (role === 'admin') {
-    const token = String(req.headers.authorization || '').slice(7).trim();
-    if (aalOf(token) !== 'aal2') throw new HttpError(403, 'Enter the code from your authenticator app to continue.', { code: 'mfa_required' });
-  }
+  // Everyone who edits a site (admins, owners and editors) must also pass a code from
+  // their authenticator app (Supabase MFA, assurance level aal2) before a pass is issued.
+  const token = String(req.headers.authorization || '').slice(7).trim();
+  if (aalOf(token) !== 'aal2') throw new HttpError(403, 'Enter the code from your authenticator app to continue.', { code: 'mfa_required' });
   sendJson(res, 200, { ...mintSiteToken(user, site), role, site: { key: site.key, name: site.name, domains: site.domains } });
 });
