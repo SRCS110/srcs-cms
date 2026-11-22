@@ -8,8 +8,8 @@ const BUCKET = process.env.CMS_BUCKET || 'site-assets';
 const MAX = 10 * 1024 * 1024;
 
 export default endpoint({ methods: ['POST'], cors: 'sites' }, async (req, res) => {
-  const user = await requireUser(req);
   const site = await siteByKey(req.body.site);
+  const user = await requireUser(req, site);
   await requireRole(site, user);
   const ext = TYPES[req.body.contentType];
   if (!ext) throw new HttpError(400, 'Use a JPG, PNG, WebP, AVIF or GIF image');

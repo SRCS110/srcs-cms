@@ -5,8 +5,8 @@ import { repoClient } from '../lib/github.js';
 import { revertEdit } from '../lib/publish.js';
 
 export default endpoint({ methods: ['POST'], cors: 'sites' }, async (req, res) => {
-  const user = await requireUser(req);
   const site = await siteByKey(req.body.site);
+  const user = await requireUser(req, site);
   await requireRole(site, user);
   await checkRateLimit(site, user);
   const id = Number(req.body.editId);

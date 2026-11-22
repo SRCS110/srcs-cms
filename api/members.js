@@ -15,8 +15,8 @@ async function findUserByEmail(email) {
 }
 
 export default endpoint({ methods: ['GET', 'POST', 'DELETE'], cors: 'sites' }, async (req, res) => {
-  const user = await requireUser(req);
   const site = await siteByKey(req.query.site || req.body.site);
+  const user = await requireUser(req, site);
   const role = await requireRole(site, user, ['admin', 'owner']);
 
   if (req.method === 'GET') {

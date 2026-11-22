@@ -47,13 +47,16 @@ const cms = http.createServer(async (req, res) => {
   const url = new URL(req.url, CMS);
   if (req.method === 'OPTIONS') return json(res, 204, {});
   if (url.pathname.startsWith('/api/')) {
-    const authed = req.headers.authorization === 'Bearer test-token';
+    const authed = req.headers.authorization === 'Bearer scms1.site-pass';
     const raw = await body(req);
     const b = raw.length && /json/.test(req.headers['content-type'] || '') ? JSON.parse(raw) : {};
     try {
       switch (url.pathname) {
         case '/api/login-link': return json(res, 200, { ok: true });
         case '/api/refresh': return json(res, 200, { access_token: 'test-token', refresh_token: 'r', expires_at: Math.floor(Date.now() / 1000) + 3600 });
+        case '/api/site-session':
+          if (req.headers.authorization !== 'Bearer test-token') return json(res, 401, { error: 'Please sign in' });
+          return json(res, 200, { access_token: 'scms1.site-pass', expires_at: Math.floor(Date.now() / 1000) + 12 * 3600, role: 'owner', site: { key: site.key, name: site.name, domains: site.domains } });
       }
       if (url.pathname === '/api/upload-put') {
         uploads.set(url.searchParams.get('id'), raw.length);

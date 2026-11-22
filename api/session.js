@@ -6,8 +6,8 @@ import { resolvePageFile } from '../lib/paths.js';
 import { listRegions } from '../lib/apply.js';
 
 export default endpoint({ methods: ['GET'], cors: 'sites' }, async (req, res) => {
-  const user = await requireUser(req);
   const site = await siteByKey(req.query.site);
+  const user = await requireUser(req, site);
   const role = await requireRole(site, user);
   const out = {
     site: { key: site.key, name: site.name, mode: site.mode, domains: site.domains },

@@ -87,3 +87,10 @@ test('page paths map to repo files and stay inside the site', () => {
   assert.throws(() => assertEditablePath('api/x.js', { root: '' }));
   assert.throws(() => assertEditablePath('other/x.html', { root: 'public' }));
 });
+
+test('undo is refused when the page changed after that edit', async () => {
+  const repo = memoryRepo({ 'index.html': index });
+  const first = await publishChanges({ repo, site, file: 'index.html', changes: [{ key: 't', value: 'First' }] });
+  await publishChanges({ repo, site, file: 'index.html', changes: [{ key: 't', value: 'Second' }] });
+  await assert.rejects(revertEdit({ repo, edit: { commit_sha: first.commit, files: first.files, created_at: new Date().toISOString() }, editor: { email: 'a@b.co' } }), /changed since that edit/);
+});

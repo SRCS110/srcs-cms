@@ -34,7 +34,8 @@
 
   // ---------------------------------------------------------------- auth
   const auth = {
-    get() { if (DEMO) return { access_token: 'demo' }; try { const raw = localStorage.getItem(KEY); return raw ? b64d(raw) : null; } catch { return null; } },
+    // Only site passes (scms1.…) are used here; anything older is cleared and means "sign in".
+    get() { if (DEMO) return { access_token: 'demo' }; try { const raw = localStorage.getItem(KEY); const a = raw ? b64d(raw) : null; if (a && !String(a.access_token || '').startsWith('scms1.')) { localStorage.removeItem(KEY); return null; } return a; } catch { return null; } },
     set(a) { try { localStorage.setItem(KEY, b64e(a)); } catch {} },
     clear() { try { localStorage.removeItem(KEY); } catch {} },
   };
@@ -46,23 +47,16 @@
     return `${API}/login.html?site=${encodeURIComponent(SITE)}&return=${encodeURIComponent(ret.href)}`;
   }
 
-  let refreshing = null;
-  async function refresh() {
-    const a = auth.get();
-    if (!a?.refresh_token) throw Object.assign(new Error('Please sign in'), { status: 401 });
-    if (!refreshing) {
-      refreshing = fetch(API + '/api/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: a.refresh_token }) })
-        .then(async (r) => { if (!r.ok) throw Object.assign(new Error('Session expired'), { status: 401 }); const s = await r.json(); auth.set(s); return s; })
-        .finally(() => { refreshing = null; });
-    }
-    return refreshing;
-  }
+  // Site passes can't be renewed from here; the sign-in page issues a new one.
+  async function refresh() { throw Object.assign(new Error('Please sign in'), { status: 401 }); }
+  // Less than 2 hours left: renew before editing starts, so no work is lost to an expiry.
+  const renewSoon = () => { const a = auth.get(); return !DEMO && (!a || (a.expires_at && a.expires_at * 1000 - Date.now() < 2 * 3600_000)); };
 
   async function api(method, path, body, retry = true) {
     if (DEMO) return demoApi(method, path, body);
     let a = auth.get();
     if (!a) throw Object.assign(new Error('Please sign in'), { status: 401 });
-    if (a.expires_at && a.expires_at * 1000 - Date.now() < 60_000) a = await refresh();
+    if (a.expires_at && a.expires_at * 1000 - Date.now() < 30_000) a = await refresh();
     const res = await fetch(API + path, {
       method,
       headers: { Authorization: 'Bearer ' + a.access_token, ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -928,7 +922,7 @@
   }
 
   async function enterEdit() {
-    if (!auth.get()) { location.href = loginUrl(); return; }
+    if (renewSoon()) { location.href = loginUrl(); return; }
     if (S.mode === 'edit') return;
     mountShell();
     clearUi();
@@ -983,9 +977,8 @@
     }
     auth.clear();
     S.regions.forEach((r) => { r.orig = current(r); });
-    const url = new URL(location.href);
-    url.searchParams.delete('edit');
-    location.replace(url.href);
+    // Also end the sign-in on cms.srcs.online, so this device needs a new email link.
+    location.replace(`${API}/login.html?signout=1`);
   }
 
   // ---------------------------------------------------------------- start
