@@ -1,2 +1,6 @@
+# cms.srcs.online is the private editor for Sync Race Studios client sites.
+# Every response is sent with "X-Robots-Tag: noindex, nofollow" so nothing here is
+# ever listed. Crawling is left open so search engines can see that instruction
+# (a robots.txt block would hide it, and blocked addresses can still be listed).
 User-agent: *
-Disallow: /
+Disallow: /api/
