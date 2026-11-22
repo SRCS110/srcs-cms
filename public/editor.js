@@ -7,6 +7,8 @@
   const SITE = me.getAttribute('data-site');
   const API = me.getAttribute('data-api');
   const START = me.getAttribute('data-mode') || 'idle';
+  // Demo mode: no sign-in, nothing leaves the browser. Used on public demo sites.
+  const DEMO = me.getAttribute('data-demo') === '1';
   const KEY = 'srcs-cms:' + SITE;
   const MAX_W = 2400;
   const PLAIN = (() => { const d = document.createElement('div'); d.contentEditable = 'plaintext-only'; return d.contentEditable === 'plaintext-only'; })();
@@ -32,7 +34,7 @@
 
   // ---------------------------------------------------------------- auth
   const auth = {
-    get() { try { const raw = localStorage.getItem(KEY); return raw ? b64d(raw) : null; } catch { return null; } },
+    get() { if (DEMO) return { access_token: 'demo' }; try { const raw = localStorage.getItem(KEY); return raw ? b64d(raw) : null; } catch { return null; } },
     set(a) { try { localStorage.setItem(KEY, b64e(a)); } catch {} },
     clear() { try { localStorage.removeItem(KEY); } catch {} },
   };
@@ -57,6 +59,7 @@
   }
 
   async function api(method, path, body, retry = true) {
+    if (DEMO) return demoApi(method, path, body);
     let a = auth.get();
     if (!a) throw Object.assign(new Error('Please sign in'), { status: 401 });
     if (a.expires_at && a.expires_at * 1000 - Date.now() < 60_000) a = await refresh();
@@ -69,6 +72,57 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status})`), { status: res.status, data });
     return data;
+  }
+
+  // ---------------------------------------------------------------- demo backend (in memory)
+  const demo = { n: 0, edits: [], published: null, polls: {}, members: [{ user_id: 'you', email: 'you@yourbusiness.com', role: 'owner', created_at: new Date().toISOString() }] };
+  const regionId = (r) => (r.global ? 'g:' : 'k:') + r.key;
+  function captureState() {
+    const m = {};
+    for (const r of S.regions) m[regionId(r)] = [r.el, ...r.mirrors].map((el) => ({ html: el.innerHTML, attrs: Object.fromEntries(['src', 'alt', 'href', 'width', 'height'].map((a) => [a, el.getAttribute(a)])) }));
+    return m;
+  }
+  function restoreState(m, ids) {
+    for (const r of S.regions) {
+      const saved = m[regionId(r)];
+      if (!saved || (ids && !ids.includes(regionId(r)))) continue;
+      [r.el, ...r.mirrors].forEach((el, i) => {
+        const st = saved[i];
+        if (!st) return;
+        if (r.type !== 'image') el.innerHTML = st.html;
+        for (const [a, v] of Object.entries(st.attrs)) if (r.type === 'image' || a === 'href') { v == null ? el.removeAttribute(a) : el.setAttribute(a, v); }
+      });
+    }
+  }
+  const fakeSha = () => Array.from({ length: 40 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+  async function demoApi(method, path, body) {
+    await sleep(300);
+    const p = path.split('?')[0];
+    const who = 'you@yourbusiness.com';
+    if (p === '/api/session') return { site: { key: SITE, name: document.title, mode: 'html' }, user: { email: who, role: 'owner' }, file: 'index.html', sha: 'demo', regions: null };
+    if (p === '/api/publish') {
+      const commit = fakeSha();
+      demo.edits.unshift({ id: ++demo.n, kind: 'edit', editor_email: who, page_path: location.pathname, regions: body.changes.map((c) => c.key), files: ['index.html'], commit_sha: commit, created_at: new Date().toISOString(), before: demo.published, ids: body.changes.map((c) => (c.global ? 'g:' : 'k:') + c.key) });
+      demo.published = captureState();
+      return { commit, sha: 'demo', files: ['index.html'] };
+    }
+    if (p === '/api/status') { const c = new URLSearchParams(path.split('?')[1]).get('commit'); demo.polls[c] = (demo.polls[c] || 0) + 1; return { state: demo.polls[c] >= 2 ? 'live' : 'building' }; }
+    if (p === '/api/history') return { edits: demo.edits.map(({ before, ids, ...e }) => e) };
+    if (p === '/api/revert') {
+      const e = demo.edits.find((x) => x.id === body.editId);
+      if (!e?.before) return { commit: null, message: 'Nothing to restore.' };
+      restoreState(e.before, e.ids);
+      demo.published = captureState();
+      const commit = fakeSha();
+      demo.edits.unshift({ id: ++demo.n, kind: 'revert', editor_email: who, page_path: e.page_path, regions: e.regions, files: e.files, commit_sha: commit, created_at: new Date().toISOString(), before: null, ids: [] });
+      return { commit, files: e.files };
+    }
+    if (p === '/api/members') {
+      if (method === 'POST') { demo.members.push({ user_id: 'u' + demo.members.length, email: String(body.email).toLowerCase(), role: body.role === 'owner' ? 'owner' : 'editor', created_at: new Date().toISOString() }); return { ok: true, invited: true }; }
+      if (method === 'DELETE') { demo.members = demo.members.filter((m) => m.user_id !== body.userId); return { ok: true }; }
+      return { members: demo.members, you: 'you' };
+    }
+    throw Object.assign(new Error('Not available in the demo'), { status: 400 });
   }
 
   // ---------------------------------------------------------------- page styles
@@ -292,13 +346,13 @@
     if (!host.isConnected) { document.documentElement.append(host); document.head.append(pageStyle); }
   }
 
-  function toast(msg, kind) {
+  function toast(msg, kind, ms) {
     ui.toast?.remove();
     ui.toast = h('div', { class: 'toast' + (kind ? ' ' + kind : ''), role: 'status' }, msg);
     layer.append(ui.toast);
     const t = ui.toast;
     t.style.bottom = (ui.bar ? ui.bar.offsetHeight + 28 : 24) + 'px';
-    setTimeout(() => t.remove(), kind === 'error' ? 7000 : 3500);
+    setTimeout(() => t.remove(), ms || (kind === 'error' ? 7000 : 3500));
   }
 
   function dialog({ title, body, ok = 'OK', cancel = 'Cancel', danger }) {
@@ -318,7 +372,7 @@
   // Signed-in, not editing: a small button to start.
   function renderIdle() {
     clearUi();
-    ui.fab = h('button', { class: 'fab', type: 'button', onclick: () => enterEdit() }, logo(), 'Edit this page');
+    ui.fab = h('button', { class: 'fab', type: 'button', onclick: () => enterEdit() }, logo(), DEMO ? 'Try the editor' : 'Edit this page');
     layer.append(ui.fab);
   }
 
@@ -352,7 +406,7 @@
       : null;
 
     ui.bar = h('div', { class: 'bar', role: 'toolbar', 'aria-label': 'Site editor' },
-      h('div', { class: 'mark' }, logo(), 'EDITOR'),
+      h('div', { class: 'mark' }, logo(), DEMO ? 'DEMO EDITOR' : 'EDITOR'),
       h('div', { class: 'seg' },
         h('button', { type: 'button', 'aria-pressed': String(S.mode === 'edit'), onclick: () => setMode('edit') }, 'Edit'),
         h('button', { type: 'button', 'aria-pressed': String(S.mode === 'preview'), onclick: () => setMode('preview') }, 'Preview')),
@@ -364,7 +418,7 @@
       pill,
       status !== 'saving' ? h('button', { class: 'btn primary', type: 'button', disabled: n ? null : true, onclick: publish, title: 'Publish (Ctrl/⌘+S)' }, 'PUBLISH') : null,
       h('button', { class: 'btn ghost', type: 'button', onclick: exitEdit, title: 'Stop editing' }, 'Done'),
-      h('button', { class: 'btn ghost', type: 'button', onclick: signOut }, 'Sign out'));
+      DEMO ? null : h('button', { class: 'btn ghost', type: 'button', onclick: signOut }, 'Sign out'));
     layer.append(ui.bar);
   }
 
@@ -456,7 +510,7 @@
         msg.className = 'note';
         msg.textContent = 'Optimizing and uploading…';
         try {
-          const out = await uploadImage(f);
+          const out = await (DEMO ? uploadImageDemo(f) : uploadImage(f));
           el.removeAttribute('srcset');
           el.closest('picture')?.querySelectorAll('source').forEach((s) => s.remove());
           el.setAttribute('src', out.url);
@@ -634,7 +688,7 @@
   document.addEventListener('dragstart', (e) => { if (editing() && locate(e.target)) e.preventDefault(); }, true);
 
   addEventListener('beforeunload', (e) => {
-    if (S.mode !== 'off' && S.mode !== 'idle' && S.regions.some(isDirty)) { e.preventDefault(); e.returnValue = ''; }
+    if (!DEMO && S.mode !== 'off' && S.mode !== 'idle' && S.regions.some(isDirty)) { e.preventDefault(); e.returnValue = ''; }
   });
 
   // ---------------------------------------------------------------- images
@@ -682,6 +736,13 @@
     let { width, height } = out;
     if (!width) { const img = await decode(file); width = img.width; height = img.height; }
     return { url: ticket.publicUrl, width, height, bytes: out.blob.size };
+  }
+
+  async function uploadImageDemo(file) {
+    const out = await optimize(file);
+    let { width, height } = out;
+    if (!width) { const img = await decode(file); width = img.width; height = img.height; }
+    return { url: URL.createObjectURL(out.blob), width, height, bytes: out.blob.size };
   }
 
   // ---------------------------------------------------------------- publish
@@ -742,7 +803,7 @@
 
   async function watch(commit, { onLive } = {}) {
     for (let i = 0; i < 75; i++) {
-      await sleep(i < 3 ? 6000 : 4000);
+      await sleep(DEMO ? 1200 : i < 3 ? 6000 : 4000);
       if (S.commit !== commit) return; // a newer publish took over
       let state;
       try { state = (await api('GET', `/api/status?site=${encodeURIComponent(SITE)}&commit=${commit}`)).state; } catch { continue; }
@@ -815,8 +876,9 @@
       const r = await api('POST', '/api/revert', { site: SITE, editId: e.id });
       closePanel();
       if (!r.commit) { toast(r.message || 'Nothing to restore.'); return; }
+      if (DEMO) S.regions.forEach(snapshot);
       S.commit = r.commit; S.status = 'building'; renderBar();
-      watch(r.commit, { onLive: async () => {
+      watch(r.commit, { onLive: DEMO ? () => toast('Restored. The page is back to how it was before that edit.') : async () => {
         const go = await dialog({ title: 'Restored', body: 'The earlier version is live. Reload to see it here.', ok: 'Reload', cancel: 'Later' });
         if (go) { S.regions.forEach((x) => { x.orig = current(x); }); location.reload(); }
       } });
@@ -867,6 +929,7 @@
 
   async function enterEdit() {
     if (!auth.get()) { location.href = loginUrl(); return; }
+    if (S.mode === 'edit') return;
     mountShell();
     clearUi();
     toast('Loading editor…');
@@ -878,8 +941,9 @@
       if (e.status === 404) { toast('This page isn’t connected to the editor.', 'error'); renderIdle(); return; }
       toast(e.message, 'error'); renderIdle(); return;
     }
-    const allowed = new Set((S.session.regions || []).map((r) => (r.global ? 'g:' : 'k:') + r.key));
+    const allowed = S.session.regions ? new Set(S.session.regions.map((r) => (r.global ? 'g:' : 'k:') + r.key)) : null;
     scan(allowed);
+    if (DEMO && !demo.published) demo.published = captureState();
     S.mode = 'edit';
     setEditable(true);
     document.body.classList.add('srcs-pad');
@@ -887,7 +951,8 @@
     if (!url.searchParams.has('edit')) { url.searchParams.set('edit', ''); history.replaceState(history.state, '', url); }
     ui.toast?.remove();
     renderBar();
-    if (!S.regions.length) toast('Nothing on this page is set up for editing yet.');
+    if (DEMO) toast('Demo: click any outlined area to edit, then Publish. Nothing is saved; reload to start over.', null, 8000);
+    else if (!S.regions.length) toast('Nothing on this page is set up for editing yet.');
   }
 
   async function exitEdit() {
