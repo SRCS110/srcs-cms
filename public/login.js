@@ -8,7 +8,7 @@
   const ret = q.get('return') || '';
   const KEY = 'srcs-cms-auth';
   const $ = (id) => document.getElementById(id);
-  const show = (id) => { for (const s of ['ask', 'sent', 'busy', 'fail', 'lost', 'out']) $(s).hidden = s !== id; };
+  const show = (id) => { for (const s of ['ask', 'sent', 'busy', 'fail', 'lost', 'out', 'mfa']) $(s).hidden = s !== id; };
   const b64e = (obj) => { const b = new TextEncoder().encode(JSON.stringify(obj)); let s = ''; b.forEach((c) => { s += String.fromCharCode(c); }); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const store = {
     get() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; } },
@@ -63,6 +63,7 @@
       if (r.status === 401) { s = await freshSession(true); if (!s) { show('ask'); return; } r = await post('/api/site-session', { site }, s.access_token); }
       const data = await r.json().catch(() => ({}));
       if (r.status === 401) { store.clear(); show('ask'); return; }
+      if (r.status === 403 && data.code === 'mfa_required') { await startMfa(s.access_token); return; }
       if (!r.ok) throw new Error(data.error || 'You don’t have access to edit this site.');
       const target = new URL(ret);
       const ok = (data.site.domains || []).some((d) => String(d).toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '') === target.host.toLowerCase());
@@ -74,6 +75,49 @@
       show('fail');
     }
   }
+
+  // Two-step sign-in for Sync Race Studios admins: scan once, then a code each sign-in.
+  let mfaFactor = null;
+  async function startMfa(token) {
+    $('mfaErr').hidden = true; $('mfaCode').value = '';
+    const st = await (await post('/api/refresh', { mfa: 'status' }, token)).json();
+    if (st.enrolled) {
+      mfaFactor = st.factorId;
+      $('mfaTitle').textContent = 'Enter your code';
+      $('mfaIntro').textContent = 'Open your authenticator app and enter the 6-digit code for SRCS Editor.';
+      $('mfaSetup').hidden = true;
+    } else {
+      const r = await post('/api/refresh', { mfa: 'enroll' }, token);
+      const e = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(e.error || 'Couldn’t start two-step setup.');
+      mfaFactor = e.factorId;
+      $('mfaTitle').textContent = 'Set up two-step sign-in';
+      $('mfaIntro').textContent = 'Your account can edit every client site, so it needs a second step. Scan this with an authenticator app (Google Authenticator, 1Password, Authy…), then enter the 6-digit code it shows.';
+      if (/^data:image\/svg\+xml/.test(e.qr || '')) $('mfaQr').src = e.qr;
+      $('mfaSecret').textContent = e.secret || '';
+      $('mfaSetup').hidden = false;
+    }
+    show('mfa');
+    $('mfaCode').focus();
+  }
+  $('mfaForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = $('mfaCode').value.replace(/\s+/g, '');
+    $('mfaErr').hidden = true;
+    if (!/^\d{6}$/.test(code)) { $('mfaErr').textContent = 'Enter the 6-digit code from your authenticator app.'; $('mfaErr').hidden = false; return; }
+    $('mfaSend').disabled = true;
+    try {
+      const s = await freshSession(false);
+      if (!s) { show('ask'); return; }
+      const r = await post('/api/refresh', { mfa: 'verify', factorId: mfaFactor, code }, s.access_token);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'That code didn’t work.');
+      store.set(d);
+      finish();
+    } catch (err) {
+      $('mfaErr').textContent = err.message; $('mfaErr').hidden = false;
+    } finally { $('mfaSend').disabled = false; }
+  });
 
   async function signOut() {
     const s = store.get();

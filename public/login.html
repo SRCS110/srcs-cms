@@ -70,6 +70,20 @@
     <button class="link" type="button" id="retry">Send a new link</button>
   </section>
 
+  <section id="mfa" hidden>
+    <form id="mfaForm" style="display:flex;flex-direction:column;gap:16px" novalidate>
+      <h1 id="mfaTitle">Enter your code</h1>
+      <p id="mfaIntro">Open your authenticator app and enter the 6-digit code for SRCS Editor.</p>
+      <div id="mfaSetup" hidden style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+        <img id="mfaQr" alt="QR code to add SRCS Editor to your authenticator app" width="180" height="180" style="background:#fff;padding:8px">
+        <p class="small">Can’t scan? Enter this key in the app instead: <code id="mfaSecret" style="word-break:break-all"></code></p>
+      </div>
+      <label>6-digit code<input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+      <div id="mfaErr" class="err" role="alert" hidden></div>
+      <button id="mfaSend" type="submit">Continue</button>
+    </form>
+  </section>
+
   <section id="out" hidden style="display:flex;flex-direction:column;gap:12px">
     <h1>You’re signed out</h1>
     <p>You’ve been signed out of the editor on this device. To edit again, open your website with <strong>?edit</strong> at the end of the address.</p>
