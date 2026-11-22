@@ -13,6 +13,11 @@ export default endpoint({ methods: ['POST'], cors: 'sites' }, async (req, res) =
   await requireRole(site, user);
   const ext = TYPES[req.body.contentType];
   if (!ext) throw new HttpError(400, 'Use a JPG, PNG, WebP, AVIF or GIF image');
+  // 60 image uploads an hour per editor.
+  const since = new Date(Date.now() - 3600_000).toISOString();
+  const recent = await db().from('assets').select('id', { count: 'exact', head: true }).eq('uploaded_by', user.id).gte('created_at', since);
+  if (recent.error) throw recent.error;
+  if (recent.count >= 60) throw new HttpError(429, 'You’ve uploaded a lot of images in the last hour. Please wait a bit and try again.');
   const bytes = Number(req.body.bytes);
   if (!(bytes > 0 && bytes <= MAX)) throw new HttpError(400, 'Images must be under 10 MB');
 

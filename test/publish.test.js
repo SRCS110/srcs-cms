@@ -77,7 +77,7 @@ test('revert restores files to before the edit', async () => {
 
 test('page paths map to repo files and stay inside the site', () => {
   assert.deepEqual(candidateFiles('/', { root: '' }), ['index.html']);
-  assert.deepEqual(candidateFiles('/about', { root: '' }), ['about.html', 'about/index.html']);
+  assert.deepEqual(candidateFiles('/about', { root: '' }), ['about.html', 'about/index.html', 'pages/about.html']);
   assert.deepEqual(candidateFiles('/pages/services.html', { root: 'public' }), ['public/pages/services.html']);
   assert.deepEqual(candidateFiles('/team/', { root: '' }), ['team/index.html']);
   assert.deepEqual(candidateFiles('/x', { root: '', config: { pages: { '/x': 'special.html' } } }), ['special.html']);

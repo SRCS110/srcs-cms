@@ -97,3 +97,28 @@ test('listRegions sees regions but not list fields', () => {
   const keys = listRegions(page).map((r) => `${r.key}:${r.type}`);
   assert.deepEqual(keys, ['hero-title:text', 'about:rich', 'story:rich', 'cta:link', 'hero:image', 'phone:text', 'rows:list', 'menu:list']);
 });
+
+test('regions on script, style, title and other raw-text elements are refused', () => {
+  for (const tag of ['script', 'style', 'title', 'textarea', 'noscript']) {
+    const html = `<html><head></head><body><${tag} data-cms="x">old</${tag}></body></html>`;
+    assert.throws(() => applyChanges(html, [{ key: 'x', value: '</' + tag + '><img src=x onerror=alert(1)>' }]), /can’t be an editable area/);
+  }
+});
+
+test('rich content can never carry script, event handlers or javascript: links', () => {
+  const html = '<div data-cms="b" data-cms-type="rich"><p>old</p></div>';
+  const evil = '<p onclick="x()">a<script>alert(1)</script><img src=x onerror=alert(1)><a href="java&#9;script:alert(1)">l</a><a href=" JaVaScRiPt:alert(1)">m</a><iframe src="//evil"></iframe><svg onload=alert(1)></svg><a href="data:text/html,<script>">d</a></p>';
+  const out = applyChanges(html, [{ key: 'b', value: evil }]).html;
+  assert.doesNotMatch(out, /<script|onerror|onclick|onload|javascript:|<iframe|<svg|<img|data:text/i);
+});
+
+test('link and image regions refuse unsafe addresses', () => {
+  const a = '<a data-cms="l" data-cms-type="link" href="/x">x</a>';
+  assert.throws(() => applyChanges(a, [{ key: 'l', value: { href: 'javascript:alert(1)' } }]), /not allowed/);
+  assert.throws(() => applyChanges(a, [{ key: 'l', value: { href: 'vbscript:x' } }]), /not allowed/);
+  const img = '<img data-cms="i" src="/a.jpg" alt="">';
+  assert.throws(() => applyChanges(img, [{ key: 'i', value: { src: 'javascript:alert(1)' } }]), /not allowed/);
+  assert.throws(() => applyChanges(img, [{ key: 'i', value: { src: 'http://insecure/x.png' } }]), /not allowed/);
+  const out = applyChanges(img, [{ key: 'i', value: { alt: '"><script>alert(1)</script>' } }]).html;
+  assert.doesNotMatch(out, /<script/);
+});
