@@ -113,6 +113,7 @@
     }
     if (p === '/api/members') {
       if (method === 'POST') { demo.members.push({ user_id: 'u' + demo.members.length, email: String(body.email).toLowerCase(), role: body.role === 'owner' ? 'owner' : 'editor', created_at: new Date().toISOString() }); return { ok: true, invited: true }; }
+      if (method === 'PATCH') return { ok: true, sent: 'link' };
       if (method === 'DELETE') { demo.members = demo.members.filter((m) => m.user_id !== body.userId); return { ok: true }; }
       return { members: demo.members, you: 'you' };
     }
@@ -900,12 +901,21 @@
         body.replaceChildren(form);
         for (const m of members) {
           body.append(h('div', { class: 'item' },
-            h('div', { class: 'meta' }, h('span', {}, m.role === 'owner' ? 'Owner' : 'Editor'), h('span', {}, m.user_id === you ? 'You' : '')),
+            h('div', { class: 'meta' }, h('span', {}, m.role === 'owner' ? 'Owner' : 'Editor'), h('span', {}, m.user_id === you ? 'You' : m.pending ? 'Invite not accepted yet' : '')),
             h('div', { class: 'what' }, m.email),
-            m.user_id !== you && (m.role !== 'owner' || role === 'admin') ? h('div', { class: 'acts' }, h('button', { type: 'button', onclick: async () => {
-              if (!(await dialog({ title: 'Remove access?', body: `${m.email} will no longer be able to edit this site.`, ok: 'Remove', danger: true }))) return;
-              try { await api('DELETE', '/api/members', { site: SITE, userId: m.user_id }); load(); } catch (err) { toast(err.message, 'error'); }
-            } }, 'Remove')) : null));
+            m.user_id !== you ? h('div', { class: 'acts' },
+              h('button', { type: 'button', onclick: async (ev) => {
+                const b = ev.currentTarget; b.disabled = true; b.textContent = 'Sending…';
+                try {
+                  const r = await api('PATCH', '/api/members', { site: SITE, userId: m.user_id });
+                  toast(r.sent === 'invite' ? `New invite sent to ${m.email}.` : `Sign-in link sent to ${m.email}.`);
+                } catch (err) { toast(err.message, 'error'); }
+                b.disabled = false; b.textContent = 'Resend link';
+              } }, 'Resend link'),
+              m.role !== 'owner' || role === 'admin' ? h('button', { type: 'button', onclick: async () => {
+                if (!(await dialog({ title: 'Remove access?', body: `${m.email} will no longer be able to edit this site.`, ok: 'Remove', danger: true }))) return;
+                try { await api('DELETE', '/api/members', { site: SITE, userId: m.user_id }); load(); } catch (err) { toast(err.message, 'error'); }
+              } }, 'Remove') : null) : null));
         }
       } catch (e) { body.replaceChildren(h('div', { class: 'empty' }, e.message)); }
     };
