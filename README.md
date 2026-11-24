@@ -14,8 +14,9 @@ client site (loader.js) ──► cms.srcs.online/api ──► GitHub (commit) 
 | --- | --- |
 | `public/loader.js` | Under 1 KB, on every client page. Loads the editor only for `?edit` or signed-in editors. |
 | `public/editor.js` | The inline editor (Shadow DOM UI, no dependencies). |
+| `public/agent.js` | AI website assistant widget. See `docs/AGENTS.md`. |
 | `public/login.html`, `login.js` | Central sign-in page (magic link). |
-| `api/*.js` | Vercel functions: `session`, `publish`, `status`, `upload-url`, `history`, `revert`, `members`, `login-link`, `refresh`, `health`. |
+| `api/*.js` | Vercel functions (`health`, `whoami` and `agent` share `api/hub.js` to stay under the Hobby plan’s 12-function limit; code in `lib/routes/`): `session`, `publish`, `status`, `upload-url`, `history`, `revert`, `members`, `login-link`, `refresh`, `health`, `agent`. |
 | `lib/apply.js` | Rewrites only the edited regions of an HTML file (byte-for-byte elsewhere). |
 | `lib/sanitize.js` | Allowlist sanitizer for edited content. |
 | `lib/publish.js` | Publish and revert logic (repo-agnostic, tested in memory). |
@@ -39,6 +40,8 @@ See `starter/CMS.md`. In short: `data-cms="key"` on an element makes it editable
 | `GITHUB_APP_PRIVATE_KEY` | The app's `.pem` contents | **yes** |
 | `GITHUB_INSTALLATION_ID` | Default installation (sites can override) | no |
 | `CMS_ORIGIN` | `https://cms.srcs.online` | no |
+
+AI assistants also need `ANTHROPIC_API_KEY` and `RESEND_API_KEY` (see `docs/AGENTS.md`).
 
 Optional: `CMS_LIMIT_USER_HOUR` (default 30), `CMS_LIMIT_SITE_DAY` (default 100), `CMS_BUCKET` (default `site-assets`).
 
