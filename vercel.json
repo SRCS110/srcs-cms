@@ -62,5 +62,19 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/hub?route=health"
+    },
+    {
+      "source": "/api/whoami",
+      "destination": "/api/hub?route=whoami"
+    },
+    {
+      "source": "/api/agent",
+      "destination": "/api/hub?route=agent"
+    }
   ]
 }

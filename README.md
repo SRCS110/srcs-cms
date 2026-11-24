@@ -16,7 +16,7 @@ client site (loader.js) ──► cms.srcs.online/api ──► GitHub (commit) 
 | `public/editor.js` | The inline editor (Shadow DOM UI, no dependencies). |
 | `public/agent.js` | AI website assistant widget. See `docs/AGENTS.md`. |
 | `public/login.html`, `login.js` | Central sign-in page (magic link). |
-| `api/*.js` | Vercel functions: `session`, `publish`, `status`, `upload-url`, `history`, `revert`, `members`, `login-link`, `refresh`, `health`, `agent`. |
+| `api/*.js` | Vercel functions (`health`, `whoami` and `agent` share `api/hub.js` to stay under the Hobby plan’s 12-function limit; code in `lib/routes/`): `session`, `publish`, `status`, `upload-url`, `history`, `revert`, `members`, `login-link`, `refresh`, `health`, `agent`. |
 | `lib/apply.js` | Rewrites only the edited regions of an HTML file (byte-for-byte elsewhere). |
 | `lib/sanitize.js` | Allowlist sanitizer for edited content. |
 | `lib/publish.js` | Publish and revert logic (repo-agnostic, tested in memory). |
