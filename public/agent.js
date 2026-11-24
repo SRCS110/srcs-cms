@@ -155,6 +155,40 @@
       log.scrollTop = log.scrollHeight;
     }
 
+    // Cloudflare Turnstile, only when the assistant asks for it. Usually invisible;
+    // shows a small check above the page only if Cloudflare needs one.
+    let tsLoad = null;
+    function human() {
+      tsLoad = tsLoad || new Promise((ok, fail) => {
+        if (window.turnstile) return ok();
+        const sc = document.createElement('script');
+        sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        sc.async = true; sc.onload = () => ok(); sc.onerror = () => { tsLoad = null; fail(new Error('check')); };
+        document.head.append(sc);
+      });
+      return tsLoad.then(() => new Promise((ok, fail) => {
+        const box = document.createElement('div');
+        box.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:2147483002';
+        document.body.append(box);
+        const done = (fn, v) => { try { window.turnstile.remove(id); } catch {} box.remove(); fn(v); };
+        const id = window.turnstile.render(box, {
+          sitekey: cfg.challenge, appearance: 'interaction-only', action: 'chat',
+          callback: (t) => done(ok, t), 'error-callback': () => done(fail, new Error('check')), 'timeout-callback': () => done(fail, new Error('check')),
+        });
+      }));
+    }
+
+    async function post(text, retry) {
+      const payload = { conversation: S.conversation, pass: S.pass || null, visitor: visitorId(), message: text, page: { url: location.href.split('#')[0], title: document.title } };
+      if (cfg.challenge && !S.pass) payload.turnstile = await human();
+      const r = await fetch(`${API}?op=chat&agent=${encodeURIComponent(KEY)}`, {
+        method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 401 && d.challenge && retry && cfg.challenge) { S.pass = null; save(S); return post(text, false); }
+      return { r, d };
+    }
+
     async function send(text) {
       text = String(text || '').trim();
       if (!text || busy) return;
@@ -164,20 +198,16 @@
       const dots = h('div', { class: 'dots', 'aria-label': 'Typing' }, h('i'), h('i'), h('i'));
       log.append(dots); log.scrollTop = log.scrollHeight;
       try {
-        const r = await fetch(`${API}?op=chat&agent=${encodeURIComponent(KEY)}`, {
-          method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversation: S.conversation, visitor: visitorId(), message: text, page: { url: location.href.split('#')[0], title: document.title } }),
-        });
-        const d = await r.json().catch(() => ({}));
+        const { r, d } = await post(text, true);
         dots.remove();
         if (!r.ok) { add({ role: 'error', text: d.error || 'Something went wrong. Please try again.' }, false); return; }
-        S.conversation = d.conversation; save(S);
+        S.conversation = d.conversation; if (d.pass) S.pass = d.pass; save(S);
         add({ role: 'assistant', text: d.reply });
         if (d.booking) add({ role: 'booking', url: d.booking.url, label: d.booking.label });
         if (d.lead) add({ role: 'note', text: 'Your details were sent to the team.' });
-      } catch {
+      } catch (e) {
         dots.remove();
-        add({ role: 'error', text: 'Couldn’t connect. Check your connection and try again.' }, false);
+        add({ role: 'error', text: e && e.message === 'check' ? 'We couldn’t confirm you’re human. Please try again.' : 'Couldn’t connect. Check your connection and try again.' }, false);
       } finally {
         busy = false; sendBtn.disabled = false; input.focus();
       }
@@ -187,7 +217,7 @@
 
     function buildPanel(inline) {
       log = h('div', { class: 'log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' });
-      input = h('textarea', { rows: '1', placeholder: 'Type your question…', 'aria-label': 'Your message', maxlength: '1500' });
+      input = h('textarea', { rows: '1', placeholder: 'Type your question…', 'aria-label': 'Your message', maxlength: '1000' });
       input.addEventListener('input', grow);
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); } });
       sendBtn = h('button', { type: 'submit', 'aria-label': 'Send' }, icon(SEND));

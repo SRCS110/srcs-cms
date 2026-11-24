@@ -62,3 +62,38 @@ test('runTurn runs tools and returns the final text', async () => {
   assert.equal(calls[1].messages.at(-1).content[0].type, 'tool_result');
   assert.equal(out.usage.input, 22);
 });
+
+test('prompt is capped no matter how much is saved', () => {
+  const big = { ...agent, settings: cleanSettings({ business_name: 'Big', knowledge: 'k'.repeat(20000), about: 'a'.repeat(4000), faqs: Array.from({ length: 60 }, (_, i) => ({ q: 'q'.repeat(300) + i, a: 'a'.repeat(2000) })) }) };
+  assert.equal(big.settings.faqs.length, 40);
+  assert.equal(big.settings.faqs[0].a.length, 800);
+  const sys = systemPrompt(big, null);
+  assert.ok(sys[0].text.length < 45000, `prompt too long: ${sys[0].text.length}`);
+});
+
+test('only allowed models run', async () => {
+  const { modelFor } = await import('../lib/agent.js');
+  assert.equal(modelFor({ model: 'claude-opus-5-5' }), 'claude-haiku-5-5');
+  assert.equal(modelFor({ model: null }), 'claude-haiku-5-5');
+});
+
+test('chat passes are bound to agent, IP and time', async () => {
+  process.env.CMS_SESSION_SECRET = 'test-secret';
+  const { mintPass, checkPass } = await import('../lib/agent.js');
+  const pass = mintPass(agent, 'ip1');
+  assert.ok(checkPass(pass, agent, 'ip1'));
+  assert.ok(!checkPass(pass, agent, 'ip2'));
+  assert.ok(!checkPass(pass, { ...agent, key: 'other' }, 'ip1'));
+  assert.ok(!checkPass(pass.slice(0, -2) + 'xx', agent, 'ip1'));
+  assert.ok(!checkPass('garbage', agent, 'ip1'));
+});
+
+test('no human check unless Turnstile keys are set', async () => {
+  const { challengeOn } = await import('../lib/agent.js');
+  delete process.env.TURNSTILE_SITE_KEY; delete process.env.TURNSTILE_SECRET_KEY;
+  assert.equal(challengeOn(agent), false);
+  process.env.TURNSTILE_SITE_KEY = 's'; process.env.TURNSTILE_SECRET_KEY = 'k';
+  assert.equal(challengeOn(agent), true);
+  assert.equal(challengeOn({ ...agent, challenge: false }), false);
+  delete process.env.TURNSTILE_SITE_KEY; delete process.env.TURNSTILE_SECRET_KEY;
+});
