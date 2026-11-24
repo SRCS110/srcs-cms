@@ -182,6 +182,19 @@
     .panel form input,.panel form select{border:1px solid #D9D2C7;padding:9px;font-size:14px;width:100%;background:#fff;color:#111}
     .panel form button.go{background:#111;color:#fff;border-color:#111;min-height:40px}
     .empty{padding:24px 18px;color:#666;font-size:13px}
+    .panel form textarea{border:1px solid #D9D2C7;padding:9px;font-size:14px;width:100%;background:#fff;color:#111;resize:vertical;line-height:1.45}
+    .panel form label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#444;font-weight:600}
+    .panel form label small{font-weight:400;color:#777}
+    .panel form .check{flex-direction:row;align-items:center;gap:8px;font-weight:400;font-size:13px}
+    .panel form .check input{width:auto}
+    .panel form .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .panel form fieldset{border:1px solid #ECE6DD;padding:10px;display:flex;flex-direction:column;gap:8px;margin:0}
+    .panel form legend{font-size:12px;font-weight:600;color:#444;padding:0 4px}
+    .tabs{display:flex;border-bottom:1px solid #ECE6DD}
+    .tabs button{flex:1;border:0;background:none;padding:12px;font-size:13px;cursor:pointer;color:#666;border-bottom:2px solid transparent;min-height:44px}
+    .tabs button[aria-selected="true"]{color:#111;border-bottom-color:#C4623A;font-weight:600}
+    .usage{font-size:12px;color:#666;padding:12px 18px 0}
+    .item a{color:#A24C29}
     .toast{pointer-events:auto;position:fixed;left:8px;right:8px;margin:0 auto;width:max-content;bottom:84px;background:#fff;color:#222;border:1px solid #E2DBD1;padding:11px 16px;font-size:14px;box-shadow:0 10px 28px rgba(17,17,17,.14);max-width:calc(100vw - 24px)}
     .toast.error{border-color:#E7B4B0;color:#8C1D18}
     .scrim{pointer-events:auto;position:fixed;inset:0;background:rgba(17,17,17,.35);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -213,7 +226,7 @@
     sel: null,            // { el, region, field }
     status: 'idle',       // idle | saving | building | live | failed
     commit: null,
-    panel: null,          // history | team | null
+    panel: null,          // history | team | agent | null
   };
 
   // ---------------------------------------------------------------- region model
@@ -410,6 +423,7 @@
       n ? h('button', { class: 'btn ghost', type: 'button', onclick: discard }, 'Discard') : null,
       h('button', { class: 'btn', type: 'button', onclick: () => openPanel('history') }, 'History'),
       role === 'owner' || role === 'admin' ? h('button', { class: 'btn', type: 'button', onclick: () => openPanel('team') }, 'Team') : null,
+      S.session?.agent ? h('button', { class: 'btn', type: 'button', onclick: () => openPanel('agent') }, 'Assistant') : null,
       pill,
       status !== 'saving' ? h('button', { class: 'btn primary', type: 'button', disabled: n ? null : true, onclick: publish, title: 'Publish (Ctrl/⌘+S)' }, 'PUBLISH') : null,
       h('button', { class: 'btn ghost', type: 'button', onclick: exitEdit, title: 'Stop editing' }, 'Done'),
@@ -838,7 +852,7 @@
   async function openPanel(kind) {
     hidePop();
     if (S.panel === kind) { closePanel(); return; }
-    if (kind === 'history') await historyPanel(); else await teamPanel();
+    if (kind === 'history') await historyPanel(); else if (kind === 'agent') await agentPanel(); else await teamPanel();
     S.panel = kind;
   }
 
@@ -920,6 +934,89 @@
       } catch (e) { body.replaceChildren(h('div', { class: 'empty' }, e.message)); }
     };
     await load();
+  }
+
+  // AI assistant: what it knows and says, and the leads it has collected.
+  async function agentPanel(tab = 'settings') {
+    const body = panelShell('Assistant');
+    S.panel = 'agent';
+    const q = `/api/agent?op=${tab}&site=${encodeURIComponent(SITE)}`;
+    const tabs = h('div', { class: 'tabs', role: 'tablist' },
+      h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === 'settings'), onclick: () => agentPanel('settings') }, 'Settings'),
+      h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === 'leads'), onclick: () => agentPanel('leads') }, 'Leads'));
+    try {
+      if (tab === 'leads') {
+        const { leads } = await api('GET', q);
+        body.replaceChildren(tabs);
+        if (!leads.length) { body.append(h('div', { class: 'empty' }, 'No leads yet. When a visitor asks the assistant to pass on their details, they’ll show here and be emailed to you.')); return; }
+        for (const l of leads) {
+          body.append(h('div', { class: 'item' },
+            h('div', { class: 'meta' }, h('span', {}, l.name || 'Visitor'), h('span', {}, fmtDate(l.created_at))),
+            l.email ? h('a', { href: `mailto:${l.email}` }, l.email) : null,
+            l.phone ? h('a', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}` }, l.phone) : null,
+            l.message ? h('div', { class: 'what' }, l.message) : null,
+            h('div', { class: 'acts' }, h('button', { type: 'button', onclick: async () => {
+              if (!(await dialog({ title: 'Delete this lead?', body: 'It will be removed from this list. Emails already sent aren’t affected.', ok: 'Delete', danger: true }))) return;
+              try { await api('DELETE', `/api/agent?op=leads&site=${encodeURIComponent(SITE)}`, { id: l.id }); agentPanel('leads'); } catch (err) { toast(err.message, 'error'); }
+            } }, 'Delete'))));
+        }
+        return;
+      }
+      const { agent, usage } = await api('GET', q);
+      const s = agent.settings;
+      const field = (label, el, hint) => h('label', {}, label, hint ? h('small', {}, hint) : null, el);
+      const inp = (name, val, attrs = {}) => h('input', { name, value: val || '', ...attrs });
+      const area = (name, val, rows, attrs = {}) => { const t = h('textarea', { name, rows: String(rows), ...attrs }); t.value = val || ''; return t; };
+      const faqBox = h('div', { style: 'display:flex;flex-direction:column;gap:8px' });
+      const addFaq = (f = { q: '', a: '' }) => {
+        const row = h('fieldset', {}, h('legend', {}, 'Question'),
+          inp('q', f.q, { placeholder: 'Question', 'aria-label': 'Question', maxlength: '300' }),
+          area('a', f.a, 3, { placeholder: 'Answer', 'aria-label': 'Answer', maxlength: '1500' }),
+          h('button', { type: 'button', onclick: () => row.remove() }, 'Remove'));
+        faqBox.append(row);
+      };
+      (s.faqs || []).forEach(addFaq);
+      const collect = h('input', { type: 'checkbox', name: 'collect_leads' }); collect.checked = s.collect_leads !== false;
+      const pos = h('select', { name: 'position', 'aria-label': 'Button position' }, h('option', { value: 'right' }, 'Bottom right'), h('option', { value: 'left' }, 'Bottom left'));
+      pos.value = s.position || 'right';
+      const color = inp('color', s.color || '#C4623A', { type: 'color', style: 'height:40px;padding:2px' });
+      const saveBtn = h('button', { class: 'go', type: 'submit' }, 'Save assistant');
+      const form = h('form', { onsubmit: async (ev) => {
+        ev.preventDefault();
+        const f = ev.currentTarget, v = (n) => f.elements[n]?.value || '';
+        const settings = {
+          assistant_name: v('assistant_name'), business_name: v('business_name'), greeting: v('greeting'),
+          about: v('about'), knowledge: v('knowledge'), instructions: v('instructions'),
+          faqs: [...faqBox.querySelectorAll('fieldset')].map((r) => ({ q: r.querySelector('[name=q]').value, a: r.querySelector('[name=a]').value })),
+          suggestions: v('suggestions').split('\n').map((x) => x.trim()).filter(Boolean),
+          booking_url: v('booking_url'), booking_label: v('booking_label'), contact_phone: v('contact_phone'),
+          lead_email: v('lead_email'), collect_leads: collect.checked,
+          color: color.value, position: pos.value, launcher_label: v('launcher_label'), privacy_url: v('privacy_url'),
+        };
+        saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+        try { await api('PATCH', q, { settings }); toast('Saved. The assistant uses it from the next message.'); }
+        catch (err) { toast(err.message, 'error'); }
+        saveBtn.disabled = false; saveBtn.textContent = 'Save assistant';
+      } },
+        field('Assistant name', inp('assistant_name', s.assistant_name, { maxlength: '60', placeholder: 'e.g. Sam' })),
+        field('Business name', inp('business_name', s.business_name, { maxlength: '120' })),
+        field('Greeting', area('greeting', s.greeting, 2, { maxlength: '400' }), 'The first thing visitors see.'),
+        field('Suggested questions', area('suggestions', (s.suggestions || []).join('\n'), 3), 'One per line, up to 4. Shown as buttons.'),
+        field('About the business', area('about', s.about, 4, { maxlength: '4000' }), 'Who you are, what you do, where you serve.'),
+        field('What the assistant should know', area('knowledge', s.knowledge, 10, { maxlength: '20000' }), 'Services, prices, hours, policies, parking. It only answers from what’s written here and on this panel.'),
+        h('div', { style: 'font-size:12px;font-weight:600;color:#444' }, 'Common questions'),
+        faqBox, h('button', { type: 'button', onclick: () => addFaq() }, '+ Add a question'),
+        field('Tone and focus', area('instructions', s.instructions, 3, { maxlength: '2000' }), 'Optional, e.g. “Friendly and brief. Always mention our free consultations.”'),
+        h('div', { class: 'two' }, field('Booking link', inp('booking_url', s.booking_url, { type: 'url', placeholder: 'https://' })), field('Button text', inp('booking_label', s.booking_label, { maxlength: '40', placeholder: 'Book now' }))),
+        field('Phone to share', inp('contact_phone', s.contact_phone, { maxlength: '40' })),
+        h('label', { class: 'check' }, collect, 'Collect visitor contact details for follow-up'),
+        field('Send new leads to', inp('lead_email', s.lead_email, { type: 'email', placeholder: 'you@business.com' })),
+        h('div', { class: 'two' }, field('Colour', color), field('Position', pos)),
+        field('Button text', inp('launcher_label', s.launcher_label, { maxlength: '30', placeholder: 'Ask us' })),
+        field('Privacy policy link', inp('privacy_url', s.privacy_url, { type: 'url', placeholder: 'https://' })),
+        saveBtn);
+      body.replaceChildren(tabs, h('div', { class: 'usage' }, `${usage.messages.toLocaleString()} of ${usage.cap.toLocaleString()} visitor messages used this month`), form);
+    } catch (e) { body.replaceChildren(tabs, h('div', { class: 'empty' }, e.message)); }
   }
 
   // ---------------------------------------------------------------- modes

@@ -8,7 +8,7 @@
   },
   "headers": [
     {
-      "source": "/(loader|editor).js",
+      "source": "/(loader|editor|agent).js",
       "headers": [
         {
           "key": "Cache-Control",
