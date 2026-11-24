@@ -20,3 +20,23 @@ create unique index if not exists agent_alerts_once_idx on public.agent_alerts (
 create index if not exists agent_alerts_agent_idx on public.agent_alerts (agent_id);
 alter table public.agent_alerts enable row level security;
 revoke all on public.agent_alerts from anon, authenticated;
+
+-- Token usage per reply, for billing AI usage at cost.
+alter table public.agent_messages
+  add column if not exists cache_write_tokens integer,
+  add column if not exists cache_read_tokens integer;
+
+-- Monthly AI usage per assistant, for invoicing (Haiku 5.5 list prices, USD).
+create or replace view public.agent_usage_monthly with (security_invoker = true) as
+select a.key, a.name, date_trunc('month', m.created_at)::date as month,
+  count(*) as replies,
+  sum(coalesce(m.input_tokens, 0)) as input_tokens,
+  sum(coalesce(m.output_tokens, 0)) as output_tokens,
+  sum(coalesce(m.cache_write_tokens, 0)) as cache_write_tokens,
+  sum(coalesce(m.cache_read_tokens, 0)) as cache_read_tokens,
+  round((sum(coalesce(m.input_tokens, 0)) * 0.10 + sum(coalesce(m.output_tokens, 0)) * 0.50
+       + sum(coalesce(m.cache_write_tokens, 0)) * 0.125 + sum(coalesce(m.cache_read_tokens, 0)) * 0.01) / 1e6, 2) as usd
+from public.agent_messages m join public.agents a on a.id = m.agent_id
+where m.role = 'assistant'
+group by a.key, a.name, date_trunc('month', m.created_at);
+revoke all on public.agent_usage_monthly from anon, authenticated;

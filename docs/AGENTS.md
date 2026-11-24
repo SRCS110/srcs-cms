@@ -59,6 +59,10 @@ Per-agent columns only SRCS changes: `domains`, `model` (default `AGENT_MODEL`),
 
 Per agent (Supabase `agents`): `monthly_message_cap` (default 3000), `daily_message_cap` (300), `challenge` (true), `active`.
 
+## Billing AI usage
+
+Clients pay $99/month plus AI usage at cost. Each reply stores its token counts. For invoices: `select * from agent_usage_monthly order by month desc, key;` (Supabase SQL editor). Clients see this month's figure in the editor's **Assistant** panel. Prices are Haiku 5.5 list rates; change `AGENT_PRICE_*` env vars and the view if the model or prices change.
+
 ## Cost and abuse controls
 
 Each request is bounded: business info capped at 40,000 characters (about 10K tokens, far below Haiku 5.5's 100K higher-price tier), chat history at 12 turns / 8,000 characters, visitor messages at 1,000 characters, replies at 400 tokens, at most 3 model calls per message. Only allow-listed models run.

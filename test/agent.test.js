@@ -97,3 +97,9 @@ test('no human check unless Turnstile keys are set', async () => {
   assert.equal(challengeOn({ ...agent, challenge: false }), false);
   delete process.env.TURNSTILE_SITE_KEY; delete process.env.TURNSTILE_SECRET_KEY;
 });
+
+test('usage cost uses Haiku 5.5 list prices', async () => {
+  const { usageCost } = await import('../lib/agent.js');
+  const c = usageCost([{ input_tokens: 1_000_000, output_tokens: 1_000_000, cache_write_tokens: 0, cache_read_tokens: 1_000_000 }]);
+  assert.equal(c.usd, 0.61);
+});

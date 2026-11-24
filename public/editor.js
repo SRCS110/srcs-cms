@@ -1015,7 +1015,7 @@
         field('Button text', inp('launcher_label', s.launcher_label, { maxlength: '30', placeholder: 'Ask us' })),
         field('Privacy policy link', inp('privacy_url', s.privacy_url, { type: 'url', placeholder: 'https://' })),
         saveBtn);
-      body.replaceChildren(tabs, h('div', { class: 'usage' }, `${usage.messages.toLocaleString()} of ${usage.cap.toLocaleString()} visitor messages used this month`), form);
+      body.replaceChildren(tabs, h('div', { class: 'usage' }, `${usage.messages.toLocaleString()} of ${usage.cap.toLocaleString()} visitor messages this month · AI usage so far $${(usage.cost?.usd ?? 0).toFixed(2)}`), form);
     } catch (e) { body.replaceChildren(tabs, h('div', { class: 'empty' }, e.message)); }
   }
 
