@@ -1,7 +1,11 @@
 /*! SRCS website assistant · Sync Race Studios
    <script src="https://cms.srcs.online/agent.js" data-agent="your-key" async></script>
    Optional: data-target="#el" renders the chat inside that element instead of a floating button.
-             data-open opens the floating chat on load. data-font="..." sets the font. */
+             data-open opens the floating chat on load. data-font="..." sets the font.
+   Open it from your own buttons or links:
+     <a href="#chat" data-agent-open>Chat with us</a>          opens the corner chat
+     <a href="#chat" data-agent-open="full">Chat with us</a>   opens it full screen
+     window.SRCSAgent.open({ full: true }) / window.SRCSAgent.close() */
 (() => {
   const me = document.currentScript;
   const KEY = me && me.getAttribute('data-agent');
@@ -75,6 +79,9 @@
     .launch svg{width:22px;height:22px}
     .right{right:20px}.left{left:20px}
     .panel{display:flex;flex-direction:column;background:#fff;overflow:hidden}
+    .scrim{position:fixed;inset:0;background:rgba(17,17,17,.45);z-index:2147483000}
+    .full{position:fixed;z-index:2147483001;left:50%;top:50%;transform:translate(-50%,-50%);width:min(780px,calc(100vw - 32px));height:min(860px,calc(100vh - 48px));border-radius:20px;box-shadow:0 30px 80px rgba(17,17,17,.35)}
+    .full .log{padding:24px 28px 10px}.full .chips{padding:4px 28px 12px}.full form{padding:14px 20px}
     .float{position:fixed;bottom:20px;z-index:2147483001;width:min(400px,calc(100vw - 32px));height:min(620px,calc(100vh - 40px));border-radius:18px;box-shadow:0 24px 60px rgba(17,17,17,.25);border:1px solid rgba(17,17,17,.08)}
     .inline{width:100%;height:100%;min-height:460px;border-radius:16px;border:1px solid rgba(17,17,17,.1)}
     header{display:flex;align-items:center;gap:12px;padding:14px 14px 14px 18px;background:var(--a);color:var(--on)}
@@ -107,7 +114,7 @@
     .foot{font-size:11.5px;color:#6B6660;text-align:center;padding:0 12px 10px;background:#fff}
     .foot a{color:inherit}
     .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-    @media (max-width:520px){.float{inset:0;width:100%;height:100%;border-radius:0;bottom:0}.launch{bottom:14px}.right{right:14px}.left{left:14px}}
+    @media (max-width:520px){header .size{display:none}.float,.full{inset:0;width:100%;height:100%;border-radius:0;bottom:0;transform:none}.scrim{display:none}.launch{bottom:14px}.right{right:14px}.left{left:14px}}
     @media (prefers-reduced-motion:reduce){.dots i{animation:none}}
   `;
 
@@ -120,6 +127,8 @@
   };
   const CHAT = 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z';
   const SEND = 'M5 12h14M13 6l6 6-6 6';
+  const EXPAND = 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7';
+  const SHRINK = 'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7';
   const CAL = 'M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z';
 
   async function start() {
@@ -140,7 +149,7 @@
     shadow.append(h('style', {}, css(accent, onAccent)), root);
 
     const S = load() || { conversation: null, messages: [] };
-    let busy = false, panel = null, launcher = null, log, input, sendBtn, chips;
+    let busy = false, panel = null, launcher = null, log, input, sendBtn, chips, full = false, scrim = null, sizeBtn = null;
 
     function add(m, persist = true) {
       if (persist) { S.messages.push(m); S.messages = S.messages.slice(-60); save(S); }
@@ -222,11 +231,13 @@
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); } });
       sendBtn = h('button', { type: 'submit', 'aria-label': 'Send' }, icon(SEND));
       const form = h('form', { onsubmit: (e) => { e.preventDefault(); send(input.value); } }, input, sendBtn);
-      const p = h('div', { class: 'panel ' + (inline ? 'inline' : 'float ' + cfg.position), role: inline ? 'region' : 'dialog', 'aria-label': `Chat with ${cfg.business}` },
+      sizeBtn = inline ? null : h('button', { type: 'button', class: 'size', onclick: () => setFull(!full) });
+      const p = h('div', { class: 'panel ' + (inline ? 'inline' : full ? 'full' : 'float ' + cfg.position), role: inline ? 'region' : 'dialog', 'aria-modal': full ? 'true' : null, 'aria-label': `Chat with ${cfg.business}` },
         h('header', {},
           h('div', { class: 'who' }, h('b', {}, cfg.name), h('small', {}, cfg.business)),
           cfg.booking ? h('button', { type: 'button', title: cfg.booking.label, 'aria-label': cfg.booking.label, onclick: () => window.open(cfg.booking.url, '_blank', 'noopener') }, icon(CAL)) : null,
           S.messages.length ? h('button', { type: 'button', title: 'Start over', 'aria-label': 'Start a new chat', onclick: reset }, '↺') : null,
+          sizeBtn,
           inline ? null : h('button', { type: 'button', 'aria-label': 'Close chat', onclick: close }, '×')),
         log);
       add({ role: 'assistant', text: cfg.greeting }, false);
@@ -237,6 +248,7 @@
       }
       p.append(form, h('div', { class: 'foot' }, 'AI assistant · answers can be wrong', cfg.privacy ? [' · ', h('a', { href: cfg.privacy, target: '_blank', rel: 'noopener' }, 'Privacy')] : null));
       if (!inline) p.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+      if (sizeBtn) paintSize();
       return p;
     }
 
@@ -247,25 +259,68 @@
       input.focus();
     }
 
-    function open() {
-      if (panel) return;
+    function paintSize() {
+      sizeBtn.replaceChildren(icon(full ? SHRINK : EXPAND, 18));
+      sizeBtn.setAttribute('aria-label', full ? 'Make chat smaller' : 'Expand chat');
+      sizeBtn.title = full ? 'Make smaller' : 'Expand';
+    }
+
+    function setFull(v) {
+      full = !!v;
+      if (!panel || TARGET) return;
+      panel.className = 'panel ' + (full ? 'full' : 'float ' + cfg.position);
+      if (full) panel.setAttribute('aria-modal', 'true'); else panel.removeAttribute('aria-modal');
+      if (full && !scrim) { scrim = h('div', { class: 'scrim', onclick: close }); root.insertBefore(scrim, panel); }
+      if (!full && scrim) { scrim.remove(); scrim = null; }
+      document.documentElement.style.overflow = full ? 'hidden' : '';
+      paintSize();
+      input?.focus();
+    }
+
+    function open(opts = {}) {
+      if (TARGET) { input?.focus(); return; }
+      if (panel) { if (opts.full != null) setFull(opts.full); return; }
       launcher.style.display = 'none';
+      full = !!opts.full;
       panel = buildPanel(false);
       root.append(panel);
-      input.focus();
+      setFull(full);
       try { S.open = true; save(S); } catch {}
     }
     function close() {
       panel?.remove(); panel = null; log = null;
+      scrim?.remove(); scrim = null;
+      if (full) document.documentElement.style.overflow = '';
+      full = false;
       launcher.style.display = '';
       launcher.focus();
       S.open = false; save(S);
     }
 
+    // Open from the page: links/buttons with data-agent-open, #chat in the URL, or window.SRCSAgent.
+    const api = { open, close };
+    window.SRCSAgent = Object.assign(window.SRCSAgent || {}, { [KEY]: api });
+    if (!window.SRCSAgent.open) Object.assign(window.SRCSAgent, api);
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest && e.target.closest('[data-agent-open]');
+      if (!t) return;
+      const only = t.getAttribute('data-agent');
+      if (only && only !== KEY) return;
+      e.preventDefault();
+      open({ full: t.getAttribute('data-agent-open') === 'full' });
+    });
+    const fromHash = () => {
+      if (location.hash !== '#chat') return;
+      history.replaceState(null, '', location.pathname + location.search);
+      open({ full: true });
+    };
+    window.addEventListener('hashchange', fromHash);
+
     if (TARGET) { panel = buildPanel(true); root.append(panel); return; }
     launcher = h('button', { class: 'launch ' + cfg.position, type: 'button', 'aria-haspopup': 'dialog', onclick: open }, icon(CHAT, 22), cfg.launcher);
     root.append(launcher);
-    if (OPEN || (S.open && innerWidth > 520)) open();
+    if (location.hash === '#chat') fromHash();
+    else if (OPEN || (S.open && innerWidth > 520)) open();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
