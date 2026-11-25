@@ -20,6 +20,8 @@ visitor ── agent.js ──► cms.srcs.online/api/agent ──► Claude API
 <script src="https://cms.srcs.online/agent.js" data-agent="KEY" async></script>
 ```
 
+Open it from any button or link with `data-agent-open` (corner chat) or `data-agent-open="full"` (full screen), e.g. `<a href="#chat" data-agent-open="full">Chat with us</a>`; visiting a page with `#chat` opens it full screen; or call `window.SRCSAgent.open({ full: true })`. Visitors can also expand the corner chat to full screen.
+
 Options: `data-target="#chat"` renders the chat inside an element instead of a floating button; `data-open` opens it on load; `data-color="#hex"` and `data-font="Jost, sans-serif"` override the look.
 
 ## Add an assistant
@@ -61,7 +63,7 @@ Per agent (Supabase `agents`): `monthly_message_cap` (default 3000), `daily_mess
 
 ## Billing AI usage
 
-Clients pay $99/month plus AI usage at cost. Each reply stores its token counts. For invoices: `select * from agent_usage_monthly order by month desc, key;` (Supabase SQL editor). Clients see this month's figure in the editor's **Assistant** panel. Prices are Haiku 5.5 list rates; change `AGENT_PRICE_*` env vars and the view if the model or prices change.
+Clients pay $199/month plus AI usage at cost. Each reply stores its token counts. For invoices: `select * from agent_usage_monthly order by month desc, key;` (Supabase SQL editor). Clients see this month's figure in the editor's **Assistant** panel. Prices are Haiku 5.5 list rates; change `AGENT_PRICE_*` env vars and the view if the model or prices change.
 
 ## Cost and abuse controls
 
